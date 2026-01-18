@@ -12,6 +12,13 @@ Config
  → Writer (Gold at end)
 ```
 
+## Getting started
+
+- Use `sample_data_gen.py` to generate your test data. Modify the field variables accordingly
+- Change settings in `pipeline.conf` if needed.
+- Run `src/pipeline_orchestrator.py` using the path of the config file
+- Run unit tests: `python -m unittest discover -s tests`
+
 ## Assumptions
 
 - Input files are CSV and header row is present

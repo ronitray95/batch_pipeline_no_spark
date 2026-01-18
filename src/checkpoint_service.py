@@ -38,9 +38,18 @@ class CheckpointService:
         if not os.path.exists(self.path):
             return Checkpoint()
 
-        with open(self.path, "r") as f:
-            data = json.load(f)
-            return Checkpoint.from_dict(data)
+        # Handle empty file
+        if os.path.getsize(self.path) == 0:
+            return Checkpoint()
+
+        try:
+            with open(self.path, "r") as f:
+                data = json.load(f)
+                return Checkpoint.from_dict(data)
+        except json.JSONDecodeError:
+            # Corrupt checkpoint should fail fast
+            raise RuntimeError(f"Checkpoint file is corrupted: {self.path}")
+
 
     def save(self, checkpoint: Checkpoint):
         if not self.enabled:

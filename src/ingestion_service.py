@@ -3,8 +3,8 @@ import glob
 import os
 from typing import Iterator, List, Dict
 
-from config_service import Config
-from checkpoint_service import Checkpoint, CheckpointService
+from src.config_service import Config
+from src.checkpoint_service import Checkpoint, CheckpointService
 
 
 class IngestionService:
