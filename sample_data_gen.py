@@ -11,11 +11,12 @@ SCHEMA_FILE = "schema.txt"
 
 TOTAL_ROWS = 10_000_000
 
-ENABLE_PARTITIONING = False
+ENABLE_PARTITIONING = True
 ROWS_PER_PARTITION = 2_000_000
 
-OUTPUT_DIR = "output"
+OUTPUT_DIR = "input"
 BASE_FILENAME = "sales_data"
+DATE_PARTITION_FORMAT = f'/date={datetime.today().strftime('%Y-%m-%d')}'
 
 WRITE_CHUNK_SIZE = 1_000
 
@@ -27,6 +28,8 @@ RANDOM_SEED = 42  # deterministic seeding
 random.seed(RANDOM_SEED)
 
 if ENABLE_PARTITIONING:
+    os.makedirs(OUTPUT_DIR + DATE_PARTITION_FORMAT, exist_ok=True)
+else:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # -----------------------------
@@ -137,9 +140,9 @@ def generate_row(schema):
 def open_writer(part_index, headers):
     if ENABLE_PARTITIONING:
         filename = f"{BASE_FILENAME}_part_{part_index:04d}.csv"
-        path = os.path.join(OUTPUT_DIR, filename)
+        path = os.path.join(OUTPUT_DIR + DATE_PARTITION_FORMAT, filename)
     else:
-        path = f"{BASE_FILENAME}.csv"
+        path = os.path.join(OUTPUT_DIR, f"{BASE_FILENAME}.csv")
 
     f = open(path, "w", newline="", encoding="utf-8")
     writer = csv.writer(f)
