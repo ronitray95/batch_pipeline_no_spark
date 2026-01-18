@@ -48,7 +48,7 @@ high_revenue_threshold = 100
                 f.write(conf)
 
             config = Config(conf_path)
-            ingestion = IngestionService(config, CheckpointService("x", False))
+            ingestion = IngestionService(config, CheckpointService("x", False), CheckpointService("y", False))
 
-            chunks = list(ingestion.read_chunks())
+            chunks = list(ingestion.read_bronze_chunks())
             self.assertEqual(len(chunks), 3)  # 2,2,1

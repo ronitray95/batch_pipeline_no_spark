@@ -87,7 +87,7 @@ class AggregationService:
         return {
             "monthly_sales_summary": self._finalize_monthly(),
             "top_products": self._finalize_products(),
-            "region_wise_performance": dict(self.regions),
+            "region_wise_performance": self._finalize_regions(),
             "category_discount_map": self._finalize_category_discount(),
             "anomaly_records": self._finalize_anomalies()
         }
@@ -117,7 +117,13 @@ class AggregationService:
 
         items.sort(key=lambda x: x["revenue"], reverse=True)
         return items[:10]
-
+    
+    def _finalize_regions(self):
+        return [
+            {"region": region, "total_revenue": round(revenue, 2)}
+            for region, revenue in self.regions.items()
+        ]
+    
     def _finalize_category_discount(self):
         result = []
         for cat, data in self.category_discount.items():

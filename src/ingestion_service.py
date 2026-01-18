@@ -1,44 +1,31 @@
 import csv
 import glob
 import os
-from typing import Iterator, List, Dict
-
-from src.config_service import Config
-from src.checkpoint_service import Checkpoint, CheckpointService
+from typing import Iterator, Dict, List
 
 
 class IngestionService:
-    def __init__(self, config: Config, checkpoint_service: CheckpointService):
+    """
+    Handles:
+    - Bronze → Silver ingestion
+    - Silver → Gold ingestion
+    """
+
+    def __init__(self, config, bronze_checkpoint, silver_checkpoint):
         self.config = config
-        self.checkpoint_service = checkpoint_service # Checkpoint is saved only after successful processing + write
+        self.bronze_cp = bronze_checkpoint
+        self.silver_cp = silver_checkpoint
 
-        self.files = self._resolve_input_files()
-        self.files.sort()  # deterministic order
+        self.bronze_files = self._resolve_bronze_files()
+        self.bronze_files.sort()
 
-    # -------------------------
-    # Public API
-    # -------------------------
-    def read_chunks(self) -> Iterator[Dict]:
-        """
-        Generator yielding:
-        {
-            'file': file_path,
-            'chunk_index': int,
-            'rows': List[Dict[str, str]]
-        }
-        """
-        checkpoint = self.checkpoint_service.get()
-
-        for file_path in self.files:
-            if checkpoint.file and file_path < checkpoint.file:
-                continue
-
-            yield from self._read_file_chunks(file_path, checkpoint) # lazy evaluation
+        self.silver_dir = os.path.join(config.output_dir, "silver")
 
     # -------------------------
-    # Internal logic
+    # BRONZE PHASE
     # -------------------------
-    def _resolve_input_files(self) -> List[str]:
+    def _resolve_bronze_files(self):
+        # single file input
         if self.config.input_type == "file":
             if not os.path.exists(self.config.input_path):
                 raise FileNotFoundError(self.config.input_path)
@@ -48,50 +35,74 @@ class IngestionService:
         if not os.path.isdir(self.config.input_path):
             raise NotADirectoryError(self.config.input_path)
 
-        pattern = os.path.join(self.config.input_path, self.config.file_pattern)
-        files = glob.glob(pattern)
-
+        files = glob.glob(
+            os.path.join(self.config.input_path, self.config.file_pattern)
+        )
         if not files:
-            raise FileNotFoundError(f"No files match pattern: {pattern}")
-
+            raise FileNotFoundError(f"No files match pattern: {self.config.file_pattern}")
+        
         return files
+    
+    def read_bronze_chunks(self) -> Iterator[Dict]:
+        cp = self.bronze_cp.get()
 
-    def _read_file_chunks(
-        self,
-        file_path: str,
-        checkpoint: Checkpoint
-    ) -> Iterator[Dict]:
+        for file_path in self.bronze_files:
+            if cp.file and file_path < cp.file:
+                continue
 
-        with open(file_path, "r", newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f) # assumes CSV input and header row present. Reads as dict per row
+            with open(file_path, "r", newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)  # assumes CSV input and header row present. Reads as dict per row
 
-            chunk = []
-            chunk_index = 0
-            rows_seen = 0
+                chunk = []
+                chunk_index = 0
+                rows_seen = 0
 
-            for row in reader:
-                rows_seen += 1
+                for row in reader:
+                    rows_seen += 1
 
-                # Skip rows already processed (resume)
-                if file_path == checkpoint.file and chunk_index < checkpoint.chunk_index:
-                    if rows_seen % self.config.chunk_size == 0:
+                    # Skip rows already processed (resume)
+                    if file_path == cp.file and chunk_index < cp.chunk_index:
+                        if rows_seen % self.config.chunk_size == 0:
+                            chunk_index += 1
+                        continue
+
+                    chunk.append(row)
+
+                    if len(chunk) >= self.config.chunk_size:
+                        yield {
+                            "file": file_path,
+                            "chunk_index": chunk_index,
+                            "rows": chunk
+                        }
+                        chunk = []
                         chunk_index += 1
-                    continue
 
-                chunk.append(row)
-
-                if len(chunk) >= self.config.chunk_size:
+                if chunk:
                     yield {
                         "file": file_path,
                         "chunk_index": chunk_index,
                         "rows": chunk
                     }
-                    chunk = []
-                    chunk_index += 1
 
-            if chunk:
+    # -------------------------
+    # SILVER PHASE
+    # -------------------------
+    def read_silver_files(self) -> Iterator[Dict]:
+        if not os.path.exists(self.silver_dir):
+            return
+
+        files = sorted(glob.glob(os.path.join(self.silver_dir, "*.csv")))
+        cp = self.silver_cp.get()
+
+        for path in files:
+            if cp.file and path <= cp.file:
+                continue
+
+            with open(path, "r", newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+
                 yield {
-                    "file": file_path,
-                    "chunk_index": chunk_index,
-                    "rows": chunk
+                    "file": path,
+                    "rows": rows
                 }

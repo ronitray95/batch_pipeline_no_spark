@@ -30,6 +30,7 @@ class Config:
 
         self._load_pipeline()
         self._load_input()
+        self._load_checkpoints()
         self._load_output()
         self._load_memory()
         self._load_anomaly()
@@ -75,14 +76,21 @@ class Config:
         self.output_dir = self._get_str(section, "output_dir")
         self.output_format = self._get_str(section, "format").lower()
 
-        if self.output_format not in ("csv",):
+        if self.output_format not in ("csv","parquet","orc"):
             raise ConfigError(
-                "Only CSV output is supported",
+                "Only CSV, Parquet, and ORC outputs are supported",
                 section=section,
                 key="format"
             )
 
         os.makedirs(self.output_dir, exist_ok=True)
+
+    def _load_checkpoints(self):
+        section = "CHECKPOINTS"
+        # self._require(section, ["bronze_checkpoint", "silver_checkpoint"]) # Checkpoints may not be present
+
+        self.bronze_checkpoint = self._get_str(section, "bronze_checkpoint")
+        self.silver_checkpoint = self._get_str(section, "silver_checkpoint")
 
     def _load_memory(self):
         section = "MEMORY"

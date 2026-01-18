@@ -8,9 +8,17 @@ class MetricsService:
 
     def __init__(self):
         self.rows_read = 0
+        self.cleaned_rows = 0
         self.rows_successful = 0
         self.rows_rejected = 0
         self.rejection_reasons = defaultdict(int)
+        self.rows_deduplicated = 0
+
+    def increment_deduplicated(self):
+        self.rows_deduplicated += 1
+
+    def increment_clean_read(self, count: int = 1):
+        self.cleaned_rows += count
 
     def increment_read(self, count: int = 1):
         self.rows_read += count
@@ -32,7 +40,8 @@ class MetricsService:
         }
 
     def log_summary(self, logger):
-        logger.info(f"Rows read: {self.rows_read}")
+        logger.info(f"Rows read from bronze: {self.cleaned_rows}")
+        logger.info(f"Rows read from silver: {self.rows_read}")
         logger.info(f"Rows successful: {self.rows_successful}")
         logger.info(f"Rows rejected: {self.rows_rejected}")
 

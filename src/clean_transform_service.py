@@ -38,6 +38,16 @@ class CleanTransformService:
     Rows missing critical economic fields are dropped.
     """
 
+    def normalize_silver_row(row: dict) -> dict:
+        """
+        Re-casts Silver CSV row fields to correct types.
+        """
+        row["quantity"] = int(row["quantity"])
+        row["unit_price"] = float(row["unit_price"])
+        row["discount_percent"] = float(row["discount_percent"])
+        row["revenue"] = float(row["revenue"])
+        return row
+
     def process_row(self, row: Dict[str, str]) -> Dict[str, Any]:
         errors: List[str] = []
         clean: Dict[str, Any] = {}
